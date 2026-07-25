@@ -311,20 +311,50 @@ function updateScore(){
   els.scoreTotal.textContent = score[level].total;
 }
 
+const GCP_KEY = "AIzaSyC7CQLZoJup7fAisfmO1r2KFH8K50A9SoE";
 let speaking = false;
-function speakText(text){
-  if (!('speechSynthesis' in window)) { els.ttsWarn.style.display='block'; return; }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'th-TH';
-  u.rate = parseFloat(els.rate.value);
-  const voices = window.speechSynthesis.getVoices();
-  const thVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('th'));
-  if (thVoice) u.voice = thVoice;
-  u.onstart = () => { speaking = true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; };
-  u.onend = () => { speaking = false; els.playBtn.classList.remove('speaking'); els.playIcon.textContent='🔊'; };
-  u.onerror = () => { speaking = false; els.playBtn.classList.remove('speaking'); els.playIcon.textContent='🔊'; };
-  window.speechSynthesis.speak(u);
+let currentAudio = null;
+
+function stopSpeaking(){
+  if (currentAudio){ currentAudio.pause(); currentAudio = null; }
+  speaking = false;
+  els.playBtn.classList.remove('speaking');
+  els.playIcon.textContent = '🔊';
+}
+
+async function speakText(text){
+  stopSpeaking();
+  const rate = parseFloat(els.rate.value);
+  try {
+    const resp = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GCP_KEY}`,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          input: { text },
+          voice: { languageCode:'th-TH', name:'th-TH-Neural2-C' },
+          audioConfig: { audioEncoding:'MP3', speakingRate: rate }
+        })
+      }
+    );
+    const data = await resp.json();
+    if (!data.audioContent) throw new Error(data.error?.message || 'No audio');
+    const audio = new Audio('data:audio/mp3;base64,' + data.audioContent);
+    currentAudio = audio;
+    speaking = true;
+    els.playBtn.classList.add('speaking');
+    els.playIcon.textContent = '⏸';
+    audio.onended = () => stopSpeaking();
+    audio.onerror = () => stopSpeaking();
+    audio.play();
+  } catch(err) {
+    console.error('TTS error:', err);
+    // fallback to browser TTS
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'th-TH'; u.rate = rate;
+    u.onstart = () => { speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; };
+    u.onend = () => stopSpeaking();
+    window.speechSynthesis.speak(u);
+  }
 }
 function speakCurrent(q){
   speakText(q.read + '。 คำถาม: ' + q.question);
@@ -332,7 +362,7 @@ function speakCurrent(q){
 els.playBtn.onclick = () => {
   const list = filteredQuestions();
   if (list.length===0) return;
-  if (speaking) { window.speechSynthesis.cancel(); speaking=false; els.playBtn.classList.remove('speaking'); els.playIcon.textContent='🔊'; }
+  if (speaking) { stopSpeaking(); return; }
   else speakCurrent(list[pos]);
 };
 
