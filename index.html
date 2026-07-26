@@ -63,14 +63,34 @@
   .playZone{display:flex; flex-direction:column; align-items:center; padding:14px 0 8px;}
   .playBtn{
     position:relative; width:100px; height:100px; border-radius:50%; border:none; cursor:pointer;
-    background:linear-gradient(160deg, var(--gold), #ffb13d); box-shadow:0 8px 20px rgba(255,176,61,0.45);
+    background:linear-gradient(160deg, var(--gold), #ffb13d);
+    box-shadow:0 4px 0 #c98a1a, 0 8px 16px rgba(255,176,61,0.35);
     display:flex; align-items:center; justify-content:center; font-size:2.3rem; color:var(--navy);
+    transition:all .12s ease; top:0; position:relative;
   }
-  .playBtn:active{transform:scale(.94);}
-  .ring{position:absolute; border-radius:50%; border:3px solid var(--gold); opacity:0; pointer-events:none;}
-  .playBtn.speaking .ring{animation:ping 1.4s ease-out infinite;}
-  .playBtn.speaking .ring:nth-child(2){animation-delay:.45s;}
-  @keyframes ping{0%{width:100%; height:100%; opacity:.55;} 100%{width:175%; height:175%; opacity:0;}}
+  .playBtn:hover{top:-2px; box-shadow:0 6px 0 #c98a1a, 0 12px 20px rgba(255,176,61,0.4);}
+  .playBtn:active{top:4px; box-shadow:0 0px 0 #c98a1a, 0 4px 10px rgba(255,176,61,0.2);}
+  .playBtn.loading{
+    background:linear-gradient(160deg,#d4e8ff,#93c5fd);
+    box-shadow:0 4px 0 #3b82f6, 0 8px 16px rgba(59,130,246,0.3);
+    animation:pulse-load 1s ease infinite;
+  }
+  @keyframes pulse-load{
+    0%,100%{box-shadow:0 4px 0 #3b82f6, 0 0 0 0 rgba(59,130,246,0.25);}
+    50%{box-shadow:0 4px 0 #3b82f6, 0 0 0 10px rgba(59,130,246,0);}
+  }
+  .playBtn.speaking{
+    background:linear-gradient(160deg,#6ee7b7,#34d399);
+    box-shadow:0 4px 0 #059669, 0 8px 16px rgba(16,185,129,0.35);
+  }
+  .statusBadge{
+    font-size:.72rem; font-weight:600; padding:3px 10px; border-radius:99px;
+    background:var(--sky); color:#4d6a78; border:1px solid var(--line);
+    transition:all .2s;
+  }
+  .statusBadge.loading{background:#EFF6FF; color:#1d4ed8; border-color:#93c5fd;}
+  .statusBadge.playing{background:#E3FBF3; color:#065f46; border-color:var(--mint);}
+  .ring{display:none;}
   .playHint{font-size:.82rem; color:#4d6a78; margin-top:8px;}
   .toggleText{margin-top:6px; background:none; border:none; color:#2E75B6; font-size:.8rem; text-decoration:underline; cursor:pointer; font-family:'Sarabun',sans-serif;}
   .revealText{margin-top:10px; padding:12px 14px; background:#F5F8FA; border-radius:14px; font-size:.86rem; color:#34505c; line-height:1.6; display:none;}
@@ -83,24 +103,66 @@
   .choiceBtn{
     flex:1; display:flex; align-items:center; gap:10px; text-align:left; padding:13px 14px; border-radius:16px;
     border:2px solid var(--line); background:#fff; font-family:'Sarabun',sans-serif; font-size:.98rem; color:var(--navy);
-    cursor:pointer;
+    cursor:pointer; transition:all .12s ease;
+    box-shadow:0 4px 0 var(--line);
+    position:relative; top:0;
   }
-  .choiceBtn:active{transform:scale(.98);}
-  .choiceLabel{flex:0 0 28px; height:28px; border-radius:50%; background:var(--sky); display:flex; align-items:center; justify-content:center; font-family:'Mitr',sans-serif; font-weight:600; font-size:.86rem;}
+  .choiceBtn:hover:not(:disabled){
+    background:#F8FBFC; border-color:#b0ccd8;
+    box-shadow:0 5px 0 #b0ccd8; top:-1px;
+  }
+  .choiceBtn:active:not(:disabled){
+    box-shadow:0 0px 0 var(--line); top:4px;
+    background:#EEF5F8;
+  }
+  .choiceLabel{
+    flex:0 0 28px; height:28px; border-radius:50%; background:var(--sky);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Mitr',sans-serif; font-weight:600; font-size:.86rem;
+    border:1.5px solid var(--line); transition:all .12s;
+  }
   .choiceSpeak{
-    flex:0 0 38px; height:38px; border-radius:50%; border:2px solid var(--line); background:#fff; font-size:1rem;
-    cursor:pointer; color:var(--purple);
+    flex:0 0 40px; height:40px; border-radius:50%; border:1.5px solid var(--line);
+    background:#fff; font-size:1rem; cursor:pointer; color:var(--purple);
+    transition:all .12s ease; position:relative; top:0;
+    box-shadow:0 2px 0 var(--line); display:flex; align-items:center; justify-content:center;
   }
-  .choiceBtn.correct{background:#E3FBF3; border-color:var(--mint);}
-  .choiceBtn.correct .choiceLabel{background:var(--mint); color:#fff;}
-  .choiceBtn.wrong{background:#FFEDED; border-color:var(--coral);}
-  .choiceBtn.wrong .choiceLabel{background:var(--coral); color:#fff;}
+  .choiceSpeak:hover{background:var(--sky); box-shadow:0 3px 0 #b0ccd8; top:-1px;}
+  .choiceSpeak:active{box-shadow:0 0px 0 var(--line); top:2px;}
+  .choiceSpeak.playing{
+    border-color:var(--purple); background:#EFEBFF; color:var(--purple);
+    box-shadow:0 2px 0 var(--purple);
+    animation:pulse-speak .9s ease infinite;
+  }
+  @keyframes pulse-speak{
+    0%,100%{box-shadow:0 2px 0 var(--purple), 0 0 0 0 rgba(124,111,224,0.2);}
+    50%{box-shadow:0 2px 0 var(--purple), 0 0 0 6px rgba(124,111,224,0);}
+  }
+  .choiceBtn.correct{background:#E3FBF3; border-color:var(--mint); box-shadow:0 4px 0 #04a87e; color:#064e3b;}
+  .choiceBtn.correct .choiceLabel{background:var(--mint); color:#fff; border-color:var(--mint);}
+  .choiceBtn.correct::after{content:'✓'; position:absolute; right:14px; font-size:1.1rem; font-weight:700; color:var(--mint);}
+  .choiceBtn.wrong{background:#FFEDED; border-color:var(--coral); box-shadow:0 4px 0 #cc4444; color:#7f1d1d;}
+  .choiceBtn.wrong .choiceLabel{background:var(--coral); color:#fff; border-color:var(--coral);}
+  .choiceBtn.wrong::after{content:'✗'; position:absolute; right:14px; font-size:1.1rem; font-weight:700; color:var(--coral);}
   .choiceBtn:disabled{cursor:default;}
 
   .navRow{display:flex; gap:10px; margin-top:18px;}
-  .navBtn{flex:1; padding:13px; border-radius:16px; border:none; font-family:'Mitr',sans-serif; font-weight:600; font-size:.95rem; cursor:pointer; background:var(--navy); color:#fff;}
-  .navBtn.secondary{background:#fff; color:var(--navy); border:2px solid var(--navy);}
-  .navBtn:disabled{opacity:.4; cursor:default;}
+  .navBtn{
+    flex:1; padding:13px; border-radius:16px; border:none;
+    font-family:'Mitr',sans-serif; font-weight:600; font-size:.95rem; cursor:pointer;
+    background:var(--navy); color:#fff;
+    box-shadow:0 4px 0 #0d1f28;
+    position:relative; top:0; transition:all .12s ease;
+  }
+  .navBtn:hover:not(:disabled){top:-1px; box-shadow:0 5px 0 #0d1f28;}
+  .navBtn:active:not(:disabled){top:4px; box-shadow:0 0px 0 #0d1f28;}
+  .navBtn.secondary{
+    background:#fff; color:var(--navy); border:2px solid var(--navy);
+    box-shadow:0 4px 0 #1B3A4B;
+  }
+  .navBtn.secondary:hover:not(:disabled){box-shadow:0 5px 0 #1B3A4B; top:-1px;}
+  .navBtn.secondary:active:not(:disabled){box-shadow:0 0px 0 #1B3A4B; top:4px;}
+  .navBtn:disabled{opacity:.4; cursor:default; box-shadow:none;}
 
   .controls{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:16px 0 6px; font-size:.8rem; color:#4d6a78;}
   .controls label{display:flex; align-items:center; gap:6px;}
@@ -142,10 +204,10 @@
 
     <div class="playZone">
       <button class="playBtn" id="playBtn">
-        <span class="ring"></span><span class="ring"></span>
         <span id="playIcon">🔊</span>
       </button>
       <div class="playHint">กดฟังคำถามนี้</div>
+      <span class="statusBadge" id="statusBadge">พร้อม</span>
       <button class="toggleText" id="toggleText">👁 แสดงข้อความ (สำหรับผู้ปกครอง)</button>
       <div class="revealText" id="revealText"></div>
     </div>
@@ -202,6 +264,7 @@ const els = {
   scoreTotal: document.getElementById('scoreTotal'),
   resetBtn: document.getElementById('resetBtn'),
   ttsWarn: document.getElementById('ttsWarn'),
+  statusBadge: document.getElementById('statusBadge'),
 };
 
 function buildLevelButtons(){
@@ -270,8 +333,13 @@ function render(){
 
     const speakBtn = document.createElement('button');
     speakBtn.className = 'choiceSpeak';
-    speakBtn.textContent = '🔈';
-    speakBtn.onclick = (e) => { e.stopPropagation(); speakText(c); };
+    speakBtn.innerHTML = '🔈';
+    speakBtn.onclick = (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.choiceSpeak').forEach(b => b.classList.remove('playing'));
+      speakBtn.classList.add('playing');
+      speakText(c).finally(() => speakBtn.classList.remove('playing'));
+    };
 
     const btn = document.createElement('button');
     btn.className = 'choiceBtn';
@@ -327,8 +395,9 @@ function stopSpeaking(){
   if (currentAudio){ currentAudio.pause(); currentAudio.src = ''; currentAudio = null; }
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   speaking = false;
-  els.playBtn.classList.remove('speaking');
+  els.playBtn.classList.remove('speaking','loading');
   els.playIcon.textContent = '🔊';
+  if (els.statusBadge){ els.statusBadge.className='statusBadge'; els.statusBadge.textContent='พร้อม'; }
 }
 
 async function speakText(text){
@@ -337,6 +406,8 @@ async function speakText(text){
   const myToken = ++requestToken;
   const abortCtrl = new AbortController();
   currentAbort = abortCtrl;
+  if (els.statusBadge){ els.statusBadge.className='statusBadge loading'; els.statusBadge.textContent='กำลังโหลด...'; }
+  els.playBtn.classList.add('loading'); els.playIcon.textContent='⏳';
   try {
     const resp = await fetch(
       `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${GCP_KEY}`,
@@ -359,8 +430,9 @@ async function speakText(text){
     const audio = new Audio('data:audio/wav;base64,' + data.audioContent);
     currentAudio = audio;
     speaking = true;
-    els.playBtn.classList.add('speaking');
+    els.playBtn.classList.remove('loading'); els.playBtn.classList.add('speaking');
     els.playIcon.textContent = '⏸';
+    if (els.statusBadge){ els.statusBadge.className='statusBadge playing'; els.statusBadge.textContent='กำลังเล่น'; }
     audio.onended = () => { if (myToken === requestToken) stopSpeaking(); };
     audio.onerror = () => { if (myToken === requestToken) stopSpeaking(); };
     audio.play();
@@ -368,9 +440,11 @@ async function speakText(text){
     if (err.name === 'AbortError') return;
     if (myToken !== requestToken) return;
     console.error('TTS error:', err);
+    els.playBtn.classList.remove('loading'); els.playIcon.textContent='🔊';
+    if (els.statusBadge){ els.statusBadge.className='statusBadge'; els.statusBadge.textContent='พร้อม'; }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'th-TH'; u.rate = rate;
-    u.onstart = () => { if(myToken===requestToken){ speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; }};
+    u.onstart = () => { if(myToken===requestToken){ speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; if(els.statusBadge){els.statusBadge.className='statusBadge playing';els.statusBadge.textContent='กำลังเล่น';}}};
     u.onend = () => { if(myToken===requestToken) stopSpeaking(); };
     window.speechSynthesis.speak(u);
   }
