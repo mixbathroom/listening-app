@@ -340,7 +340,7 @@ async function speakText(text){
             name: 'th-TH-Chirp3-HD-Algieba'
           },
           audioConfig: {
-            audioEncoding: 'MP3'
+            audioEncoding: 'LINEAR16'
           }
         })
       }
@@ -348,7 +348,7 @@ async function speakText(text){
     const data = await resp.json();
     if (myToken !== playToken) return;
     if (!data.audioContent) throw new Error(data.error?.message || 'No audio');
-    const audio = new Audio('data:audio/mp3;base64,' + data.audioContent);
+    const audio = new Audio('data:audio/wav;base64,' + data.audioContent);
     audio.playbackRate = rate;
     audio.preservesPitch = false;
     audio.mozPreservesPitch = false;
