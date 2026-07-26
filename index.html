@@ -303,9 +303,9 @@ function selectChoice(q, key, i){
   setTimeout(() => {
     const ans = q.choices[q.answer];
     if (correct) {
-      speakSSML(\`<speak>ถูกต้อง<break time="400ms"/>คำตอบคือ \${ans}</speak>\`);
+      speakSSML('<speak>ถูกต้อง<break time="400ms"/>คำตอบคือ ' + ans + '</speak>');
     } else {
-      speakSSML(\`<speak>ยังไม่ถูก<break time="400ms"/>คำตอบที่ถูกคือ<break time="300ms"/>\${ans}</speak>\`);
+      speakSSML('<speak>ยังไม่ถูก<break time="400ms"/>คำตอบที่ถูกคือ<break time="300ms"/>' + ans + '</speak>');
     }
   }, 350);
 }
@@ -383,8 +383,8 @@ async function speakSSML(ssml){
   stopSpeaking();
   const rate = parseFloat(els.rate.value);
   try {
-    const resp = await fetch(
-      \`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=\${GCP_KEY}\`,
+    const url = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=' + GCP_KEY;
+    const resp = await fetch(url,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           input: { ssml },
@@ -394,7 +394,7 @@ async function speakSSML(ssml){
       }
     );
     const data = await resp.json();
-    if (!data.audioContent) throw new Error(data.error?.message || 'No audio');
+    if (!data.audioContent) throw new Error((data.error && data.error.message) || 'No audio');
     const audio = new Audio('data:audio/mp3;base64,' + data.audioContent);
     currentAudio = audio;
     speaking = true;
