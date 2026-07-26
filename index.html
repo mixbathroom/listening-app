@@ -454,8 +454,8 @@ function buildSSML(read, question){
   readSSML = readSSML.replace(/:/g, '<break time="100ms"/>');
   return `<speak>
     ${readSSML}
-    <break time="500ms"/>
-    คำถาม <break time="150ms"/> ${question}
+    <break time="200ms"/>
+    คำถาม <break time="50ms"/> ${question}
   </speak>`;
 }
 
