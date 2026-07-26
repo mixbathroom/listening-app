@@ -304,9 +304,9 @@ function selectChoice(q, key, i){
   setTimeout(() => {
     const ans = q.choices[q.answer];
     if (correct) {
-      speakSSML('<speak>ถูกต้อง<break time="400ms"/>คำตอบคือ ' + ans + '</speak>');
+      speakSSML('<speak>ถูกต้อง<break time="150ms"/>คำตอบคือ ' + ans + '</speak>');
     } else {
-      speakSSML('<speak>ยังไม่ถูก<break time="400ms"/>คำตอบที่ถูกคือ<break time="300ms"/>' + ans + '</speak>');
+      speakSSML('<speak>ยังไม่ถูก<break time="150ms"/>คำตอบที่ถูกคือ<break time="100ms"/>' + ans + '</speak>');
     }
   }, 350);
 }
@@ -376,12 +376,12 @@ async function speakText(text){
   }
 }
 function buildSSML(read, question){
-  let readSSML = read.replace(/(\d+)\s*-\s*(?=\d)/g, '$1<break time="600ms"/>');
-  readSSML = readSSML.replace(/:/g, '<break time="300ms"/>');
+  let readSSML = read.replace(/(\d+)\s*-\s*(?=\d)/g, '$1<break time="100ms"/>');
+  readSSML = readSSML.replace(/:/g, '<break time="100ms"/>');
   return `<speak>
     ${readSSML}
-    <break time="1200ms"/>
-    คำถาม <break time="400ms"/> ${question}
+    <break time="500ms"/>
+    คำถาม <break time="150ms"/> ${question}
   </speak>`;
 }
 
