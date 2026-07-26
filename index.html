@@ -342,7 +342,8 @@ async function speakText(text){
             name: 'th-TH-Chirp3-HD-Achernar'
           },
           audioConfig: {
-            audioEncoding: 'MP3',
+            audioEncoding: 'LINEAR16',
+            sampleRateHertz: 24000,
             speakingRate: rate
           }
         })
@@ -350,7 +351,7 @@ async function speakText(text){
     );
     const data = await resp.json();
     if (!data.audioContent) throw new Error(data.error?.message || 'No audio');
-    const audio = new Audio('data:audio/mp3;base64,' + data.audioContent);
+    const audio = new Audio('data:audio/wav;base64,' + data.audioContent);
     currentAudio = audio;
     speaking = true;
     els.playBtn.classList.add('speaking');
@@ -390,13 +391,13 @@ async function speakSSML(ssml){
         body: JSON.stringify({
           input: { ssml },
           voice: { languageCode:'th-TH', name:'th-TH-Chirp3-HD-Achernar' },
-          audioConfig: { audioEncoding:'MP3', speakingRate: rate }
+          audioConfig: { audioEncoding:'LINEAR16', sampleRateHertz:24000, speakingRate: rate }
         })
       }
     );
     const data = await resp.json();
     if (!data.audioContent) throw new Error((data.error && data.error.message) || 'No audio');
-    const audio = new Audio('data:audio/mp3;base64,' + data.audioContent);
+    const audio = new Audio('data:audio/wav;base64,' + data.audioContent);
     currentAudio = audio;
     speaking = true;
     els.playBtn.classList.add('speaking');
