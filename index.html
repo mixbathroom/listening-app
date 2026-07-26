@@ -359,6 +359,17 @@ function render(){
   els.nextBtn.textContent = (pos === list.length-1) ? 'จบแล้ว ✓' : 'ถัดไป →';
 
   updateScore();
+
+  // Pre-load เสียงข้อปัจจุบันในพื้นหลัง
+  const ssmlNow = buildSSML(q.read, q.question);
+  prefetchSSML(ssmlNow);
+
+  // Pre-load เสียงข้อถัดไปด้วยเผื่อไว้
+  if (pos + 1 < list.length) {
+    const qNext = list[pos + 1];
+    prefetchSSML(buildSSML(qNext.read, qNext.question));
+  }
+
   if (els.autoPlay.checked) speakCurrent(q);
 }
 
@@ -389,6 +400,28 @@ let speaking = false;
 let currentAudio = null;
 let currentAbort = null;
 let requestToken = 0;
+const audioCache = new Map();
+
+async function prefetchSSML(ssml){
+  if (audioCache.has(ssml)) return;
+  audioCache.set(ssml, '__loading__');
+  try {
+    const url = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=' + GCP_KEY;
+    const resp = await fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        input:{ssml},
+        voice:{languageCode:'th-TH', name:'th-TH-Chirp3-HD-Achernar'},
+        audioConfig:{audioEncoding:'LINEAR16', sampleRateHertz:24000, speakingRate:parseFloat(els.rate.value)}
+      })
+    });
+    const data = await resp.json();
+    if (data.audioContent){
+      if (audioCache.size > 30){ audioCache.delete(audioCache.keys().next().value); }
+      audioCache.set(ssml, data.audioContent);
+    } else { audioCache.delete(ssml); }
+  } catch(e){ audioCache.delete(ssml); }
+}
 
 function stopSpeaking(){
   if (currentAbort){ currentAbort.abort(); currentAbort = null; }
@@ -463,6 +496,17 @@ async function speakSSML(ssml){
   stopSpeaking();
   const rate = parseFloat(els.rate.value);
   const myToken = ++requestToken;
+  const cached = audioCache.get(ssml);
+  if (cached && cached !== '__loading__'){
+    const audio = new Audio('data:audio/wav;base64,' + cached);
+    currentAudio = audio; speaking = true;
+    els.playBtn.classList.remove('loading'); els.playBtn.classList.add('speaking');
+    els.playIcon.textContent = '⏸';
+    if(els.statusBadge){els.statusBadge.className='statusBadge playing';els.statusBadge.textContent='กำลังเล่น';}
+    audio.onended = ()=>{ if(myToken===requestToken) stopSpeaking(); };
+    audio.onerror = ()=>{ if(myToken===requestToken) stopSpeaking(); };
+    audio.play(); return;
+  }
   const abortCtrl = new AbortController();
   currentAbort = abortCtrl;
   try {
