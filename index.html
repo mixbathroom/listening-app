@@ -319,9 +319,13 @@ function updateScore(){
 const GCP_KEY = "AIzaSyC7CQLZoJup7fAisfmO1r2KFH8K50A9SoE";
 let speaking = false;
 let currentAudio = null;
+let currentAbort = null;
+let requestToken = 0;
 
 function stopSpeaking(){
-  if (currentAudio){ currentAudio.pause(); currentAudio = null; }
+  if (currentAbort){ currentAbort.abort(); currentAbort = null; }
+  if (currentAudio){ currentAudio.pause(); currentAudio.src = ''; currentAudio = null; }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   speaking = false;
   els.playBtn.classList.remove('speaking');
   els.playIcon.textContent = '🔊';
@@ -330,17 +334,17 @@ function stopSpeaking(){
 async function speakText(text){
   stopSpeaking();
   const rate = parseFloat(els.rate.value);
+  const myToken = ++requestToken;
+  const abortCtrl = new AbortController();
+  currentAbort = abortCtrl;
   try {
-    // ใช้ Gemini 3.1 Flash TTS — เสียง Achernar ภาษาไทย
     const resp = await fetch(
       `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${GCP_KEY}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
+        signal: abortCtrl.signal,
         body: JSON.stringify({
           input: { text },
-          voice: {
-            languageCode: 'th-TH',
-            name: 'th-TH-Chirp3-HD-Achernar'
-          },
+          voice: { languageCode:'th-TH', name:'th-TH-Chirp3-HD-Achernar' },
           audioConfig: {
             audioEncoding: 'LINEAR16',
             sampleRateHertz: 24000,
@@ -350,29 +354,29 @@ async function speakText(text){
       }
     );
     const data = await resp.json();
-    if (!data.audioContent) throw new Error(data.error?.message || 'No audio');
+    if (myToken !== requestToken) return;
+    if (!data.audioContent) throw new Error((data.error && data.error.message) || 'No audio');
     const audio = new Audio('data:audio/wav;base64,' + data.audioContent);
     currentAudio = audio;
     speaking = true;
     els.playBtn.classList.add('speaking');
     els.playIcon.textContent = '⏸';
-    audio.onended = () => stopSpeaking();
-    audio.onerror = () => stopSpeaking();
+    audio.onended = () => { if (myToken === requestToken) stopSpeaking(); };
+    audio.onerror = () => { if (myToken === requestToken) stopSpeaking(); };
     audio.play();
   } catch(err) {
+    if (err.name === 'AbortError') return;
+    if (myToken !== requestToken) return;
     console.error('TTS error:', err);
-    // fallback to browser TTS
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'th-TH'; u.rate = rate;
-    u.onstart = () => { speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; };
-    u.onend = () => stopSpeaking();
+    u.onstart = () => { if(myToken===requestToken){ speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; }};
+    u.onend = () => { if(myToken===requestToken) stopSpeaking(); };
     window.speechSynthesis.speak(u);
   }
 }
 function buildSSML(read, question){
-  // แทนเลขที่มีขีด เช่น "4 - 8 - 2" → เพิ่ม break ระหว่างตัวเลข
   let readSSML = read.replace(/(\d+)\s*-\s*(?=\d)/g, '$1<break time="600ms"/>');
-  // แทน ":" ด้วย pause
   readSSML = readSSML.replace(/:/g, '<break time="300ms"/>');
   return `<speak>
     ${readSSML}
@@ -384,10 +388,14 @@ function buildSSML(read, question){
 async function speakSSML(ssml){
   stopSpeaking();
   const rate = parseFloat(els.rate.value);
+  const myToken = ++requestToken;
+  const abortCtrl = new AbortController();
+  currentAbort = abortCtrl;
   try {
     const url = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=' + GCP_KEY;
     const resp = await fetch(url,
       { method:'POST', headers:{'Content-Type':'application/json'},
+        signal: abortCtrl.signal,
         body: JSON.stringify({
           input: { ssml },
           voice: { languageCode:'th-TH', name:'th-TH-Chirp3-HD-Achernar' },
@@ -396,21 +404,24 @@ async function speakSSML(ssml){
       }
     );
     const data = await resp.json();
+    if (myToken !== requestToken) return;
     if (!data.audioContent) throw new Error((data.error && data.error.message) || 'No audio');
     const audio = new Audio('data:audio/wav;base64,' + data.audioContent);
     currentAudio = audio;
     speaking = true;
     els.playBtn.classList.add('speaking');
     els.playIcon.textContent = '⏸';
-    audio.onended = () => stopSpeaking();
-    audio.onerror = () => stopSpeaking();
+    audio.onended = () => { if (myToken === requestToken) stopSpeaking(); };
+    audio.onerror = () => { if (myToken === requestToken) stopSpeaking(); };
     audio.play();
   } catch(err) {
+    if (err.name === 'AbortError') return;
+    if (myToken !== requestToken) return;
     console.error('SSML TTS error:', err);
     const u = new SpeechSynthesisUtterance(ssml.replace(/<[^>]+>/g,''));
     u.lang = 'th-TH'; u.rate = rate;
-    u.onstart = () => { speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; };
-    u.onend = () => stopSpeaking();
+    u.onstart = () => { if(myToken===requestToken){ speaking=true; els.playBtn.classList.add('speaking'); els.playIcon.textContent='⏸'; }};
+    u.onend = () => { if(myToken===requestToken) stopSpeaking(); };
     window.speechSynthesis.speak(u);
   }
 }
