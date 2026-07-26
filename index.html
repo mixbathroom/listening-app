@@ -315,7 +315,9 @@ const GCP_KEY = "AIzaSyC7CQLZoJup7fAisfmO1r2KFH8K50A9SoE";
 let speaking = false;
 let currentAudio = null;
 
+let playToken = 0;
 function stopSpeaking(){
+  playToken++;
   if (currentAudio){ currentAudio.pause(); currentAudio = null; }
   speaking = false;
   els.playBtn.classList.remove('speaking');
@@ -324,6 +326,7 @@ function stopSpeaking(){
 
 async function speakText(text){
   stopSpeaking();
+  const myToken = playToken;
   const rate = parseFloat(els.rate.value);
   try {
     // ใช้ Gemini 3.1 Flash TTS — เสียง Algieba ภาษาไทย
@@ -343,6 +346,7 @@ async function speakText(text){
       }
     );
     const data = await resp.json();
+    if (myToken !== playToken) return;
     if (!data.audioContent) throw new Error(data.error?.message || 'No audio');
     const audio = new Audio('data:audio/mp3;base64,' + data.audioContent);
     audio.playbackRate = rate;
@@ -357,6 +361,7 @@ async function speakText(text){
     audio.onerror = () => stopSpeaking();
     audio.play();
   } catch(err) {
+    if (myToken !== playToken) return;
     console.error('TTS error:', err);
     // fallback to browser TTS
     const u = new SpeechSynthesisUtterance(text);
