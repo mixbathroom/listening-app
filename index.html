@@ -180,7 +180,7 @@
 <div class="wrap">
   <header>
     <h1>🎧 ฟังแล้วตอบ</h1>
-    <p class="subtitle">แบบฝึกทักษะการฟัง — เตรียมสอบเข้าสาธิตจุฬาฯ <span style="font-size:.7rem;background:#EFEBFF;color:#5b4bbf;padding:2px 8px;border-radius:99px;margin-left:4px;">v2.3</span></p>
+    <p class="subtitle">แบบฝึกทักษะการฟัง — เตรียมสอบเข้าสาธิตจุฬาฯ <span style="font-size:.7rem;background:#EFEBFF;color:#5b4bbf;padding:2px 8px;border-radius:99px;margin-left:4px;">v2.4</span></p>
   </header>
 
   <div id="ttsWarn" class="warn">อุปกรณ์นี้อาจไม่รองรับเสียงพูดภาษาไทย ลองใช้เบราว์เซอร์อื่น หรือกด "แสดงข้อความ" เพื่ออ่านเอง</div>
@@ -482,13 +482,51 @@ async function speakText(text){
     window.speechSynthesis.speak(u);
   }
 }
+function normThai(text){
+  // 1. เว้นวรรคหลังคำเชื่อม/คำสำคัญ เพื่อให้ TTS ตัดคำถูก
+  const connectors = ['แต่ว่า','เพราะว่า','เนื่องจาก','ถึงแม้ว่า','แม้ว่า','เพื่อที่จะ',
+    'ในขณะที่','หลังจากที่','ก่อนที่จะ','ในกรณีที่','ซึ่งหมายความว่า',
+    'ดังนั้น','อย่างไรก็ตาม','นอกจากนี้','ยิ่งไปกว่านั้น','ในทางกลับกัน',
+    'แต่','และ','หรือ','จึง','เพราะ','ถ้า','เมื่อ','ก็','จาก','โดย',
+    'เพื่อ','กับ','ของ','ใน','ที่','ว่า','ให้','ได้','จะ','มี','เป็น',
+    'การ','ความ','ไม่','ต้อง','ควร','อาจ','ซึ่ง','แล้ว','อีก'];
+  // เรียงจากยาวไปสั้นเพื่อ match คำยาวก่อน
+  connectors.sort((a,b) => b.length - a.length);
+
+  // 2. เพิ่ม SSML break หลังเครื่องหมายวรรคตอนไทย
+  let t = text;
+  t = t.replace(/([,،،])/g, '$1<break time="80ms"/>');
+  t = t.replace(/([。．.!?！？])/g, '$1<break time="120ms"/>');
+
+  // 3. ใส่ space หลังคำที่ขึ้นต้นประโยคย่อย เพื่อช่วย TTS ตัดคำ
+  const sentenceStarters = ['ถ้า','เมื่อ','แต่','และ','หรือ','จึง','เพราะ',
+    'แม้','ซึ่ง','โดย','ดังนั้น','อย่างไรก็ตาม','นอกจากนี้'];
+  sentenceStarters.forEach(w => {
+    // ใส่ break ก่อนคำเชื่อมที่อยู่กลางประโยค (ไม่ใช่ตอนต้น)
+    const re = new RegExp('([\u0E00-\u0E7F])(' + w + ')', 'g');
+    t = t.replace(re, '$1<break time="60ms"/>$2');
+  });
+
+  return t;
+}
+
 function buildSSML(read, question){
-  let readSSML = read.replace(/(\d+)\s*-\s*(?=\d)/g, '$1<break time="100ms"/>');
-  readSSML = readSSML.replace(/:/g, '<break time="100ms"/>');
+  // normalize ทั้ง read และ question
+  let readSSML = normThai(read);
+  let qSSML = normThai(question);
+
+  // เลขที่คั่นด้วย - เช่น "4 - 8 - 2" ใส่ break ระหว่างตัวเลข
+  readSSML = readSSML.replace(/(\d+)\s*-\s*(?=\d)/g, '$1<break time="100ms"/>');
+  qSSML = qSSML.replace(/(\d+)\s*-\s*(?=\d)/g, '$1<break time="100ms"/>');
+
+  // : ใส่ break
+  readSSML = readSSML.replace(/:/g, '<break time="80ms"/>');
+  qSSML = qSSML.replace(/:/g, '<break time="80ms"/>');
+
   return `<speak>
     ${readSSML}
     <break time="200ms"/>
-    คำถาม <break time="50ms"/> ${question}
+    คำถาม <break time="50ms"/> ${qSSML}
   </speak>`;
 }
 
