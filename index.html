@@ -180,7 +180,7 @@
 <div class="wrap">
   <header>
     <h1>🎧 ฟังแล้วตอบ</h1>
-    <p class="subtitle">แบบฝึกทักษะการฟัง — เตรียมสอบเข้าสาธิตจุฬาฯ <span style="font-size:.7rem;background:#EFEBFF;color:#5b4bbf;padding:2px 8px;border-radius:99px;margin-left:4px;">v2.5</span></p>
+    <p class="subtitle">แบบฝึกทักษะการฟัง — เตรียมสอบเข้าสาธิตจุฬาฯ <span style="font-size:.7rem;background:#EFEBFF;color:#5b4bbf;padding:2px 8px;border-radius:99px;margin-left:4px;">v2.6</span></p>
   </header>
 
   <div id="ttsWarn" class="warn">อุปกรณ์นี้อาจไม่รองรับเสียงพูดภาษาไทย ลองใช้เบราว์เซอร์อื่น หรือกด "แสดงข้อความ" เพื่ออ่านเอง</div>
@@ -402,30 +402,40 @@ let currentAbort = null;
 let requestToken = 0;
 const audioCache = new Map();
 
-// Google LINEAR16 = raw PCM ไม่มี header → ต้องเพิ่ม WAV header ก่อนเล่น
-function pcmToWav(base64pcm, sampleRate=24000, channels=1, bitsPerSample=16){
-  const pcm = Uint8Array.from(atob(base64pcm), c => c.charCodeAt(0));
-  const dataLen = pcm.length;
-  const buf = new ArrayBuffer(44 + dataLen);
-  const v = new DataView(buf);
-  const str = (off, s) => [...s].forEach((c,i) => v.setUint8(off+i, c.charCodeAt(0)));
-  str(0,'RIFF'); v.setUint32(4, 36+dataLen, true);
-  str(8,'WAVE'); str(12,'fmt ');
-  v.setUint32(16,16,true);           // fmt chunk size
-  v.setUint16(20,1,true);            // PCM format
-  v.setUint16(22,channels,true);
-  v.setUint32(24,sampleRate,true);
-  v.setUint32(28,sampleRate*channels*bitsPerSample/8,true); // byte rate
-  v.setUint16(32,channels*bitsPerSample/8,true);            // block align
-  v.setUint16(34,bitsPerSample,true);
-  str(36,'data'); v.setUint32(40,dataLen,true);
-  new Uint8Array(buf,44).set(pcm);
-  // แปลงกลับเป็น base64
-  const bytes = new Uint8Array(buf);
-  let b = '';
-  const chunk = 8192;
-  for(let i=0;i<bytes.length;i+=chunk) b += String.fromCharCode(...bytes.subarray(i,i+chunk));
-  return btoa(b);
+// Web Audio API — เล่น raw PCM โดยตรง ทำงานได้ทุกเบราว์เซอร์ ไม่บีบอัดเสียง
+let _audioCtx = null;
+function getAudioCtx(){
+  if (!_audioCtx || _audioCtx.state === 'closed')
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Safari ต้องการ resume หลัง user gesture
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+function playPCM(base64pcm, sampleRate=24000){
+  return new Promise((resolve, reject) => {
+    try {
+      const ctx = getAudioCtx();
+      // decode base64 → Uint8Array (Int16 PCM)
+      const raw = atob(base64pcm);
+      const bytes = new Uint8Array(raw.length);
+      for(let i=0;i<raw.length;i++) bytes[i] = raw.charCodeAt(i);
+      // Int16 → Float32
+      const samples = bytes.length >> 1;
+      const f32 = new Float32Array(samples);
+      const dv = new DataView(bytes.buffer);
+      for(let i=0;i<samples;i++) f32[i] = dv.getInt16(i*2, true) / 32768;
+      // สร้าง AudioBuffer และเล่น
+      const buf = ctx.createBuffer(1, samples, sampleRate);
+      buf.getChannelData(0).set(f32);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.onended = () => resolve(src);
+      src.start(0);
+      currentAudio = { pause: () => { try{ src.stop(); }catch(e){} }, src: '(pcm)' };
+    } catch(err) { reject(err); }
+  });
 }
 
 async function prefetchSSML(ssml){
@@ -486,15 +496,12 @@ async function speakText(text){
     const data = await resp.json();
     if (myToken !== requestToken) return;
     if (!data.audioContent) throw new Error((data.error && data.error.message) || 'No audio');
-    const audio = new Audio('data:audio/wav;base64,' + pcmToWav(data.audioContent));
-    currentAudio = audio;
     speaking = true;
     els.playBtn.classList.remove('loading'); els.playBtn.classList.add('speaking');
     els.playIcon.textContent = '⏸';
     if (els.statusBadge){ els.statusBadge.className='statusBadge playing'; els.statusBadge.textContent='กำลังเล่น'; }
-    audio.onended = () => { if (myToken === requestToken) stopSpeaking(); };
-    audio.onerror = () => { if (myToken === requestToken) stopSpeaking(); };
-    audio.play();
+    playPCM(data.audioContent).then(()=>{ if(myToken===requestToken) stopSpeaking(); })
+                        .catch(()=>{ if(myToken===requestToken) stopSpeaking(); });
   } catch(err) {
     if (err.name === 'AbortError') return;
     if (myToken !== requestToken) return;
@@ -562,14 +569,13 @@ async function speakSSML(ssml){
   const myToken = ++requestToken;
   const cached = audioCache.get(ssml);
   if (cached && cached !== '__loading__'){
-    const audio = new Audio('data:audio/wav;base64,' + pcmToWav(cached));
-    currentAudio = audio; speaking = true;
+    speaking = true;
     els.playBtn.classList.remove('loading'); els.playBtn.classList.add('speaking');
     els.playIcon.textContent = '⏸';
     if(els.statusBadge){els.statusBadge.className='statusBadge playing';els.statusBadge.textContent='กำลังเล่น';}
-    audio.onended = ()=>{ if(myToken===requestToken) stopSpeaking(); };
-    audio.onerror = ()=>{ if(myToken===requestToken) stopSpeaking(); };
-    audio.play(); return;
+    playPCM(cached).then(()=>{ if(myToken===requestToken) stopSpeaking(); })
+                   .catch(()=>{ if(myToken===requestToken) stopSpeaking(); });
+    return;
   }
   const abortCtrl = new AbortController();
   currentAbort = abortCtrl;
@@ -588,14 +594,12 @@ async function speakSSML(ssml){
     const data = await resp.json();
     if (myToken !== requestToken) return;
     if (!data.audioContent) throw new Error((data.error && data.error.message) || 'No audio');
-    const audio = new Audio('data:audio/wav;base64,' + pcmToWav(data.audioContent));
-    currentAudio = audio;
     speaking = true;
-    els.playBtn.classList.add('speaking');
+    els.playBtn.classList.remove('loading'); els.playBtn.classList.add('speaking');
     els.playIcon.textContent = '⏸';
-    audio.onended = () => { if (myToken === requestToken) stopSpeaking(); };
-    audio.onerror = () => { if (myToken === requestToken) stopSpeaking(); };
-    audio.play();
+    if(els.statusBadge){els.statusBadge.className='statusBadge playing';els.statusBadge.textContent='กำลังเล่น';}
+    playPCM(data.audioContent).then(()=>{ if(myToken===requestToken) stopSpeaking(); })
+                              .catch(()=>{ if(myToken===requestToken) stopSpeaking(); });
   } catch(err) {
     if (err.name === 'AbortError') return;
     if (myToken !== requestToken) return;
